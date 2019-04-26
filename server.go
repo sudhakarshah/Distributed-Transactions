@@ -191,6 +191,9 @@ func main(){
 
 					transToData[m.transId] = map[string]string{}
 					// transToData[m.transId]["x"] = "100"
+					for _,v := range locks {
+						v.kill.Off(m.from.num)
+					}
 					m.from.SendMsg("OK")
 				} else {
 					m.from.SendMsg("NOT_OK")
@@ -225,6 +228,7 @@ func main(){
 				break
 			case "ABORT":
 				for _,v := range locks {
+					v.kill.On(m.from.num)
 					v.removeReader(m.from.num)
 					v.removeWriter(m.from.num)
 				}

@@ -9,8 +9,9 @@ import(
 	"time"
 	_"bufio"
 	_"strings"
+	"strconv"
 	"container/list"
-	"context"
+	_"context"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -26,14 +27,44 @@ type Lock struct{
 	writeLock *semaphore.Weighted
 	readHolders map[string]int
 	writeHolder string
+	kill KillSwitch
 }
 
+type KillSwitch struct{
+	kill map[string]bool
+	mux sync.Mutex
+}
+
+func (ks * KillSwitch) On(id string){
+	ks.mux.Lock()
+	ks.kill[id] = true
+	ks.mux.Unlock()
+}
+
+func (ks * KillSwitch) Off(id string){
+	ks.mux.Lock()
+	ks.kill[id] = false
+	ks.mux.Unlock()
+}
+
+func (ks * KillSwitch) isOn(id string)bool{
+	ks.mux.Lock()
+	defer ks.mux.Unlock()
+	if ks.kill[id]{
+		ks.kill[id] = false
+		return true
+	}
+	return false
+}
 
 func (l *Lock)init()int {
 	l.readLock = semaphore.NewWeighted(int64(10))
 	l.writeLock = semaphore.NewWeighted(int64(1))
 	l.readHolders = make(map[string]int)
 	l.writeHolder = ""
+	for i:=0;i<10;i++{
+		l.kill.Off(strconv.Itoa(i))
+	}
 	return 1;
 }
 
@@ -61,10 +92,17 @@ func (l *Lock)writerExists() bool {
 func (l *Lock)lockReader(cliNum string) {
 	// spin lock while writer exists
 	for l.writerExists() {
+		if l.kill.isOn(cliNum){
+			return
+		}
 		time.Sleep(1)
 	}
-	ctx := context.Background()
-	l.readLock.Acquire(ctx, 1)
+	//ctx := context.Background()
+	for !l.readLock.TryAcquire(1){
+		if l.kill.isOn(cliNum){
+			return
+		}
+	}
 	l.readHolders[cliNum] = 1
 }
 
@@ -75,11 +113,18 @@ func (l *Lock)lockWriter(cliNum string) {
 		if (len(l.readHolders) == 1 && l.isReader(cliNum)) {
 			break
 		}
+		if l.kill.isOn(cliNum){
+			return
+		}
 		time.Sleep(1)
 		fmt.Println("pooling")
 	}
-	ctx := context.Background()
-	l.writeLock.Acquire(ctx, 1)
+	// ctx := context.Background()
+	for !l.writeLock.TryAcquire(1){
+		if l.kill.isOn(cliNum){
+			return
+		}
+	}
 	l.writeHolder = cliNum
 }
 
