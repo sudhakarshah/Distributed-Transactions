@@ -62,6 +62,7 @@ func (l *Lock)init()int {
 	l.writeLock = semaphore.NewWeighted(int64(1))
 	l.readHolders = make(map[string]int)
 	l.writeHolder = ""
+	l.kill.kill = make(map[string]bool)
 	for i:=0;i<10;i++{
 		l.kill.Off(strconv.Itoa(i))
 	}
@@ -89,24 +90,25 @@ func (l *Lock)writerExists() bool {
 	return l.writeHolder != ""
 }
 
-func (l *Lock)lockReader(cliNum string) {
+func (l *Lock)lockReader(cliNum string) bool{
 	// spin lock while writer exists
 	for l.writerExists() {
 		if l.kill.isOn(cliNum){
-			return
+			return false
 		}
 		time.Sleep(1)
 	}
 	//ctx := context.Background()
 	for !l.readLock.TryAcquire(1){
 		if l.kill.isOn(cliNum){
-			return
+			return false
 		}
 	}
 	l.readHolders[cliNum] = 1
+	return true
 }
 
-func (l *Lock)lockWriter(cliNum string) {
+func (l *Lock)lockWriter(cliNum string)bool{
 
 	// spin lock while reader exists
 	for l.readerExists() {
@@ -114,7 +116,7 @@ func (l *Lock)lockWriter(cliNum string) {
 			break
 		}
 		if l.kill.isOn(cliNum){
-			return
+			return false
 		}
 		time.Sleep(1)
 		fmt.Println("pooling")
@@ -122,10 +124,11 @@ func (l *Lock)lockWriter(cliNum string) {
 	// ctx := context.Background()
 	for !l.writeLock.TryAcquire(1){
 		if l.kill.isOn(cliNum){
-			return
+			return false
 		}
 	}
 	l.writeHolder = cliNum
+	return true
 }
 
 func (l *Lock)UnlockReader(cliNum string) {

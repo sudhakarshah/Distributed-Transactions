@@ -96,7 +96,10 @@ func set(m Msg) {
 		m.from.SendMsg("OK")
 		return
 	}
-	locks[m.obj].lockWriter(m.from.num)
+	if ! locks[m.obj].lockWriter(m.from.num) {
+		m.from.SendMsg("ABORTED")
+		return
+	}
 	// fmt.Println("got write lock")
 	transToData[m.transId][m.obj] = m.val
 	// fmt.Println("transid: %s, obj:%s, val:%s",m.transId,m.obj,transToData[m.transId][m.obj])
@@ -138,7 +141,10 @@ func get(m Msg) {
 	}
 
 	// blocking for lock
-	locks[m.obj].lockReader(m.from.num)
+	if ! locks[m.obj].lockReader(m.from.num){
+		m.from.SendMsg("ABORTED")
+		return
+	}
 	// lock required
 	val,_ := data.isPresent(m.obj)
 	s := fmt.Sprintf("%s.%s %s", server_name, m.obj, val)
