@@ -154,6 +154,24 @@ func get(m Msg) {
 	return
 }
 
+func sendToDeadlock(conn net.Conn, msg string)bool {
+	_, er := fmt.Fprintf(conn, msg)
+	if er != nil {
+		fmt.Printf("Error in talking to deadlock handler\n")
+		return false
+	}
+	reader := bufio.NewReader(conn)
+	s, err := reader.ReadString('\n')
+	fmt.Printf("# recieved string %s\n", s)
+	if err != nil {
+		fmt.Println("#Error in listening")
+		fmt.Printf("# %s", err)
+		return false
+	}
+	s = strings.TrimSpace(s)
+	return s == "NO"
+}
+
 func main(){
 	if len(os.Args) != 3 {
 		fmt.Println("Need server id as argument. One of {A,B,C,D,E}      portnum")
@@ -174,6 +192,11 @@ func main(){
 	// fmt.Println("Started Listening on\n")
 	a,_ := strconv.Atoi(os.Args[2])
 	go startListening(&inbox, a)
+	conn_deadlock, err := net.Dial("tcp", "127.0.0.1:9999")
+	if err != nil {
+		fmt.Printf("couldn't connect to deadlock server\n")
+		return
+	}
 	for {
 			m, err := inbox.pop()
 			//fmt.Println("Got msg\n")
@@ -207,10 +230,20 @@ func main(){
 				break
 			case "GET":
 				// fmt.Println("GET Received")
+				if sendToDeadlock(conn_deadlock, fmt.Sprintf("ADD %s %s %s\n",m.from.num,server_name+"."+m.obj,"R")) {
+					m.from.SendMsg("DEADLOCK")
+					// fmt.Println("GET Received")
+					break
+				}
 				go get(m)
 				break
 			case "SET":
 				// fmt.Println("SET Received")
+				if sendToDeadlock(conn_deadlock, fmt.Sprintf("ADD %s %s %s\n",m.from.num,server_name+"."+m.obj,"W")) {
+					m.from.SendMsg("DEADLOCK")
+					// fmt.
+					break
+				}
 				go set(m)
 				break
 			case "PRECOMMIT":
@@ -230,6 +263,7 @@ func main(){
 				delete(transToclient, m.transId)
 				delete(clientToTrans, m.from.num)
 				// fmt.Println("Sending commit ok")
+				sendToDeadlock(conn_deadlock, fmt.Sprintf("REMOVE %s\n",m.from.num))
 				m.from.SendMsg("COMMIT OK")
 				break
 			case "ABORT":
@@ -241,6 +275,7 @@ func main(){
 				delete(transToData, m.transId)
 				delete(transToclient, m.transId)
 				delete(clientToTrans, m.from.num)
+				sendToDeadlock(conn_deadlock, fmt.Sprintf("REMOVE %s\n",m.from.num))
 				m.from.SendMsg("ABORTED")
 
 				break
