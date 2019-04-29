@@ -16,7 +16,7 @@ lock = asyncio.Lock()
 g_client = {}
 g_obj = {}
 
-def will_deadlock(g_client, g_obj, client, obj):
+def will_deadlock(g_client, g_obj, client, obj, lock_type):
     if obj not in g_obj:
         return False
     if client not in g_client:
@@ -25,13 +25,25 @@ def will_deadlock(g_client, g_obj, client, obj):
 
     cs = g_obj[obj]
     obj_set = set()
-    for c in cs:
-        obj_set = obj_set.union(g_client[c])
-    if obj in obj_set:
-        obj_set.remove(obj)
-    if len(client_objs.intersection(obj_set)) > 0:
-        return True
+    for c, ltype in cs:
+        if "W" in (lock_type + ltype):
+            obj_set = obj_set.union(g_client[c])
+    del_list = []
+    for obj_tup in obj_set:
+        if obj_tup[0] == obj:
+            del_list.append(obj_tup)
+    for t in del_list:
+        obj_set.remove(t)
+    return conflict(client_objs, obj_set)
+
+def conflict(set1, set2):
+    # convert to dict
+    for obj1, lt1 in set1:
+        for obj2, lt2 in set2:
+            if obj1 == obj2 and (lt1 == "W" or lt2 == "W"):
+                return True
     return False
+    
 
 def remove_client(g_client, g_obj, client):
     if client not in g_client:
@@ -39,15 +51,23 @@ def remove_client(g_client, g_obj, client):
     rlist = g_client[client]
     g_client[client] = set()
     for obj in rlist:
-        g_obj[obj].remove(client)
+        remove_list = []
+        obj_name = obj[0]
+        if obj_name in g_obj:
+            r_varient = (client, "R")
+            w_varient = (client, "W")
+            if r_varient in g_obj[obj_name]:
+                g_obj[obj_name].remove(r_varient)
+            if w_varient in g_obj[obj_name]:
+                g_obj[obj_name].remove(w_varient)
 
-def add_edge(g_client, g_obj, client, obj):
+def add_edge(g_client, g_obj, client, obj, ltype):
     if client not in g_client:
         g_client[client] = set()
     if obj not in g_obj:
         g_obj[obj] = set()
-    g_client[client].add(obj)
-    g_obj[obj].add(client)
+    g_client[client].add((obj, ltype))
+    g_obj[obj].add((client, ltype))
     return
 
 async def handle_connection(reader, writer):
@@ -64,10 +84,11 @@ async def handle_connection(reader, writer):
             await lock.acquire()
             try:
                 if token[0] == "ADD":
-                    if will_deadlock(g_client, g_obj, token[1], token[2]): # token[1] = client, token[2] = obj
+                    if will_deadlock(g_client, g_obj, token[1], token[2], token[3]): # token[1] = client, token[2] = obj
                         writer.write("NO\n".encode())
+                        remove_client(g_client, g_obj, token[1]) # token[1] = client
                     else:
-                        add_edge(g_client, g_obj, token[1], token[2])
+                        add_edge(g_client, g_obj, token[1], token[2], token[3])
                         writer.write("YES\n".encode())
 
                 elif token[0] == "REMOVE":
