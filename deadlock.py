@@ -28,12 +28,16 @@ def will_deadlock(g_client, g_obj, client, obj, lock_type):
     for c, ltype in cs:
         if "W" in (lock_type + ltype):
             obj_set = obj_set.union(g_client[c])
+    if (client, lock_type) in obj_set:
+        obj_set.remove((client, obj))
+    '''
     del_list = []
     for obj_tup in obj_set:
         if obj_tup[0] == obj:
             del_list.append(obj_tup)
     for t in del_list:
         obj_set.remove(t)
+    '''
     return conflict(client_objs, obj_set)
 
 def conflict(set1, set2):
