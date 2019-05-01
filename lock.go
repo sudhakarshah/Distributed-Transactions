@@ -97,12 +97,14 @@ func (l *Lock)lockReader(cliNum string) bool{
 			return false
 		}
 		time.Sleep(1)
+		fmt.Println("pooling read")
 	}
 	//ctx := context.Background()
 	for !l.readLock.TryAcquire(1){
 		if l.kill.isOn(cliNum){
 			return false
 		}
+		fmt.Println("pooling read next")
 	}
 	l.readHolders[cliNum] = 1
 	return true

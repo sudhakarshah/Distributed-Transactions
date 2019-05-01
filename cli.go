@@ -29,7 +29,7 @@ func cli(server_map map[string]net.Conn)error {
 			counterLock.Unlock()
 			continue
 		}
-		commandsHandling += 1
+		commandsHandling = 1
 		counterLock.Unlock()
 		go handle_command(server_map, text)
 	}
@@ -57,7 +57,12 @@ func handle_command(server_map map[string]net.Conn, comm string) {
 			if unicast_wrapper(server_map, s[1], comm) < 1 {
 				break
 			}
-			if listen_single_response(server_map, strings.Split(s[1], ".")[0]) != "OK" {
+			s := listen_single_response(server_map, strings.Split(s[1], ".")[0])
+			if (s == "DEADLOCK") {
+				handle_command(server_map, "ABORT")
+				break
+			}
+			if  s != "OK"{
 				fmt.Println("# COULD NOT SET. THIS SHOULD NOT HAPPEN")
 			} else {
 				fmt.Println("OK")
@@ -70,6 +75,10 @@ func handle_command(server_map map[string]net.Conn, comm string) {
 			s := listen_single_response(server_map, strings.Split(s[1], ".")[0])
 			if (s == "NOT FOUND") {
 				// aborting the transaction
+				handle_command(server_map, "ABORT")
+				break
+			}
+			if (s == "DEADLOCK") {
 				handle_command(server_map, "ABORT")
 				break
 			}
@@ -112,8 +121,9 @@ func handle_command(server_map map[string]net.Conn, comm string) {
 			fmt.Printf("# UNKOWN COMMAND: %s\n", comm)
 			break
 		}
+			// fmt.Printf("# COMMAND DONE: %s\n", comm)
 		counterLock.Lock()
-		commandsHandling -= 1
+		commandsHandling = 0
 		counterLock.Unlock()
 		return
 
