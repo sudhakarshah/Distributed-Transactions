@@ -49,7 +49,7 @@ def conflict(set1, set2):
             if obj1 == obj2 and (lt1 == "W" or lt2 == "W"):
                 return True
     return False
-    
+
 
 def remove_client(g_client, g_obj, client):
     if client not in g_client:
@@ -86,8 +86,10 @@ async def handle_connection(reader, writer):
             connect_line = connect_line.strip().decode()
             print(connect_line)
             token = connect_line.split(" ")
-
+            print(token)
+            print("Acquiring lock\n")
             await lock.acquire()
+            print("Acquired lock\n")
             try:
                 if token[0] == "ADD":
                     if will_deadlock(g_client, g_obj, token[1], token[2], token[3]): # token[1] = client, token[2] = obj

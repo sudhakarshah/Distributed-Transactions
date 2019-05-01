@@ -29,7 +29,7 @@ func cli(server_map map[string]net.Conn)error {
 			counterLock.Unlock()
 			continue
 		}
-		commandsHandling += 1
+		commandsHandling = 1
 		counterLock.Unlock()
 		go handle_command(server_map, text)
 	}
@@ -121,8 +121,9 @@ func handle_command(server_map map[string]net.Conn, comm string) {
 			fmt.Printf("# UNKOWN COMMAND: %s\n", comm)
 			break
 		}
+			// fmt.Printf("# COMMAND DONE: %s\n", comm)
 		counterLock.Lock()
-		commandsHandling -= 1
+		commandsHandling = 0
 		counterLock.Unlock()
 		return
 
