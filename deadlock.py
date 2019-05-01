@@ -26,6 +26,8 @@ def will_deadlock(g_client, g_obj, client, obj, lock_type):
     cs = g_obj[obj]
     obj_set = set()
     for c, ltype in cs:
+        if c == client:
+            continue
         if "W" in (lock_type + ltype):
             obj_set = obj_set.union(g_client[c])
     if (client, lock_type) in obj_set:
