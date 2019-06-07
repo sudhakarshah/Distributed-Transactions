@@ -1,9 +1,17 @@
-# cs425mp3
+# Distributed-Transactions
 
-High level idea:
-Idea 1:
-Client connects to multiple servers and a single coordinator.
-The coordinator is the one that arbitrates the locking.
-Therefore, if a client wants to lock, it must request
+Make : ```make```<br />
+Start deadlock detector : ```python3 deadlock.py 9999```<br />
+Start 5 servers : ```python3 run.py```<br />
+Run client : ```./client num(0-9)```<br />
 
-server ignores all requests that are not for them
+## Example <br />
+```./client 0```<br />
+```./client 1```<br />
+
+## Features <br />
+Atomic, Consistency, Isolation with deadlock detection <br/>
+
+<br />
+Made using Go 
+
